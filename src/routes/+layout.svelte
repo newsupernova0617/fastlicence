@@ -1,6 +1,8 @@
 <script lang="ts">
+
 	import '../app.css';
-	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
+	import { getSupabaseClient } from '$lib/supabaseClient';
 	import { onDestroy } from 'svelte';
 	import favicon from '$lib/assets/favicon.svg';
 	import HeaderNav from '$lib/components/HeaderNav.svelte';
@@ -23,6 +25,7 @@
 	let unsubscribeClientUser: (() => void) | null = null;
 
 	if (browser) {
+		(window as any).supabase = getSupabaseClient(); 
 		unsubscribeClientUser = currentUser.subscribe((value) => {
 			user = value ?? data.user ?? null;
 		});
@@ -40,6 +43,10 @@
 	const closeAuthModal = () => {
 		authModalState.close();
 	};
+	onMount(() => {
+		(window as any).supabase = getSupabaseClient();
+		console.log('supabase ready:', !!(window as any).supabase);
+	});	
 </script>
 
 <svelte:head>
