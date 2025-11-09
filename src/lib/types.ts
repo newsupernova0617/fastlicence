@@ -22,6 +22,7 @@ export type CourseSummary = {
 	title: string;
 	subtitle?: string | null;
 	description?: string | null;
+	publishedAt?: string | null;
 	thumbnailUrl?: string | null;
 	instructor: string;
 	difficulty: DifficultyLevel;

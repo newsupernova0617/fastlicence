@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { CourseListResponse, DifficultyLevel } from '$lib/types';
+import type { CourseListResponse, CourseSummary, DifficultyLevel } from '$lib/types';
 import { getMockCourses } from '$lib/mocks/courses';
 
 /**
@@ -32,7 +32,26 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		//   .limit(limit);
 
 		// 임시: 목업 데이터 반환
-		const mockCourses = getMockCourses(limit);
+		const normalizeSortParam = (
+			value: string | null
+		): 'popular' | 'latest' | 'priceAsc' | 'priceDesc' => {
+			switch (value) {
+				case 'latest':
+				case 'newest':
+					return 'latest';
+				case 'priceAsc':
+				case 'price_low':
+					return 'priceAsc';
+				case 'priceDesc':
+				case 'price_high':
+					return 'priceDesc';
+				default:
+					return 'popular';
+			}
+		};
+
+		const sortParam = normalizeSortParam(sort);
+		const mockCourses = getMockCourses();
 
 		// 검색어 필터 (목업 데이터에 적용)
 		let filteredCourses = mockCourses;
@@ -51,15 +70,27 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		}
 
 		// 정렬
-		if (sort === 'priceAsc') {
-			filteredCourses.sort((a, b) => (a.salePrice ?? a.originalPrice) - (b.salePrice ?? b.originalPrice));
-		} else if (sort === 'priceDesc') {
-			filteredCourses.sort((a, b) => (b.salePrice ?? b.originalPrice) - (a.salePrice ?? a.originalPrice));
+		const priceValue = (course: CourseSummary) => course.salePrice ?? course.originalPrice;
+		const publishedAtValue = (course: CourseSummary) =>
+			course.publishedAt ? Date.parse(course.publishedAt) : 0;
+		const popularityScore = (course: CourseSummary) => course.reviewCount ?? 0;
+
+		if (sortParam === 'priceAsc') {
+			filteredCourses.sort((a, b) => priceValue(a) - priceValue(b));
+		} else if (sortParam === 'priceDesc') {
+			filteredCourses.sort((a, b) => priceValue(b) - priceValue(a));
+		} else if (sortParam === 'latest') {
+			filteredCourses.sort((a, b) => publishedAtValue(b) - publishedAtValue(a));
+		} else {
+			filteredCourses.sort((a, b) => popularityScore(b) - popularityScore(a));
 		}
 
+		const limitedCourses = filteredCourses.slice(0, limit);
+		const hasMore = filteredCourses.length > limit;
+
 		const response: CourseListResponse = {
-			items: filteredCourses,
-			nextCursor: cursor && filteredCourses.length >= limit ? `cursor_${Date.now()}` : null
+			items: limitedCourses,
+			nextCursor: hasMore ? `cursor_${Date.now()}` : null
 		};
 
 		return json(response);

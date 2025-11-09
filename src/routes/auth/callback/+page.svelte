@@ -59,6 +59,6 @@
 				<p>{errorMessage}</p>
 			</div>
 		</div>
-		<a class="btn btn-primary" href="/login-test">다시 시도하기</a>
+		<a class="btn btn-primary" href="/">다시 시도하기</a>
 	{/if}
 </section>

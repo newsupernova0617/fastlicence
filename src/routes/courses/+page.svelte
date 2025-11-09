@@ -61,61 +61,104 @@
 				</div>
 			</div>
 
-			<div class="grid gap-5 p-6 md:grid-cols-[2fr,1fr,1fr]">
-				<label class="form-control">
-					<div class="label">
-						<span class="label-text font-medium">검색어</span>
-					</div>
-					<div class="join w-full shadow-sm">
-						<div class="join-item flex items-center px-3 bg-base-200 border border-r-0 border-base-300">
-							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<div class="space-y-6 p-6">
+				<div class="flex flex-col gap-3 md:flex-row md:items-center">
+					<label class="flex-1">
+						<span class="sr-only">강의 검색</span>
+						<div class="relative">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-base-content/50"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 							</svg>
+							<input
+								type="search"
+								name="search"
+								placeholder="강의명, 강사명, 키워드를 입력하세요"
+								value={data.filters.search}
+								class="input input-bordered h-12 w-full border-2 border-base-300/80 pl-12 pr-32 text-base focus:border-primary focus:ring-2 focus:ring-primary/20"
+							/>
+							<button
+								type="submit"
+								class="btn btn-primary absolute right-2 top-1/2 -translate-y-1/2 rounded-xl border-2 border-primary/80 bg-primary px-6 text-base-content font-semibold shadow-lg hover:shadow-xl"
+							>
+								검색
+							</button>
 						</div>
-						<input
-							type="search"
-							name="search"
-							placeholder="강의명, 강사명, 키워드 검색..."
-							value={data.filters.search}
-							class="input join-item input-bordered flex-1 focus:border-primary"
-						/>
-						<button type="submit" class="btn btn-primary join-item hover-scale">
-							검색
-						</button>
-					</div>
-				</label>
-				<label class="form-control">
-					<div class="label">
-						<span class="label-text font-medium">난이도</span>
-					</div>
-					<select
-						class="select select-bordered shadow-sm focus:border-primary"
-						name="difficulty"
-						value={data.filters.difficulty}
-						onchange={(event) => event.currentTarget.form?.requestSubmit()}
-					>
-						<option value="all">🌟 전체</option>
-						<option value="beginner">🟢 초급</option>
-						<option value="intermediate">🟡 중급</option>
-						<option value="advanced">🔴 고급</option>
-					</select>
-				</label>
-				<label class="form-control">
-					<div class="label">
-						<span class="label-text font-medium">정렬</span>
-					</div>
-					<select
-						class="select select-bordered shadow-sm focus:border-primary"
-						name="sort"
-						value={data.filters.sort}
-						onchange={(event) => event.currentTarget.form?.requestSubmit()}
-					>
-						<option value="popular">🔥 인기순</option>
-						<option value="newest">✨ 최신순</option>
-						<option value="price_low">💰 가격 낮은순</option>
-						<option value="price_high">💎 가격 높은순</option>
-					</select>
-				</label>
+					</label>
+					{#if data.filters.search}
+						<a
+							href="/courses"
+							class="btn btn-ghost btn-sm text-base-content/70 hover:text-base-content gap-2"
+						>
+							검색 초기화
+						</a>
+					{/if}
+				</div>
+
+				<div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+					<fieldset class="flex-1 space-y-3">
+						<legend class="text-sm font-semibold text-base-content/80">난이도</legend>
+						<div class="flex flex-wrap gap-3">
+							{#each [
+								{ value: 'all', label: '전체', emoji: '🌟' },
+								{ value: 'beginner', label: '초급', emoji: '🟢' },
+								{ value: 'intermediate', label: '중급', emoji: '🟡' },
+								{ value: 'advanced', label: '고급', emoji: '🔴' }
+							] as option}
+								<label class="cursor-pointer">
+									<input
+										type="radio"
+										name="difficulty"
+										value={option.value}
+										class="peer sr-only"
+										checked={data.filters.difficulty === option.value}
+										onchange={(event) => event.currentTarget.form?.requestSubmit()}
+									/>
+									<span
+										class="flex items-center gap-2 rounded-2xl border border-base-300 px-4 py-2 text-sm font-medium text-base-content/80 transition-all peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary"
+									>
+										<span>{option.emoji}</span>
+										{option.label}
+									</span>
+								</label>
+							{/each}
+						</div>
+					</fieldset>
+
+					<fieldset class="flex-1 space-y-3">
+						<legend class="text-sm font-semibold text-base-content/80">정렬</legend>
+						<div class="flex flex-wrap gap-3">
+							{#each [
+								{ value: 'popular', label: '인기순', icon: '🔥' },
+								{ value: 'newest', label: '최신순', icon: '✨' },
+								{ value: 'price_low', label: '가격 낮은순', icon: '💰' },
+								{ value: 'price_high', label: '가격 높은순', icon: '💎' }
+							] as option}
+								<label class="cursor-pointer">
+									<input
+										type="radio"
+										name="sort"
+										value={option.value}
+										class="peer sr-only"
+										checked={data.filters.sort === option.value}
+										onchange={(event) => event.currentTarget.form?.requestSubmit()}
+									/>
+									<span
+										class="flex items-center gap-2 rounded-2xl border border-base-300 px-4 py-2 text-sm font-medium text-base-content/80 transition-all peer-checked:border-accent peer-checked:bg-accent/10 peer-checked:text-accent"
+									>
+										<span>{option.icon}</span>
+										{option.label}
+									</span>
+								</label>
+							{/each}
+						</div>
+					</fieldset>
+				</div>
 			</div>
 		</form>
 

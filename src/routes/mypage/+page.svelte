@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CourseSearch from '$lib/components/mypage/CourseSearch.svelte';
 	import { updateProfile } from '$lib/api';
 	import { authModalState } from '$lib/stores/ui';
 	import type { UserCourseSummary, UserProfile } from '$lib/types';
@@ -16,8 +17,31 @@
 	let address = $state(data.profile?.address ?? '');
 	let isSaving = $state(false);
 	let message = $state('');
+	let isEditingProfile = $state(false);
+	let searchQuery = $state('');
+	let filteredCourses = $state<UserCourseSummary[]>(data.courses);
 
 	const openAuthModal = () => authModalState.open();
+
+	const resetProfileFields = () => {
+		if (!data.profile) return;
+		nickname = data.profile.nickname ?? '';
+		address = data.profile.address ?? '';
+	};
+
+	const startEditingProfile = () => {
+		if (!data.profile) return;
+		resetProfileFields();
+		message = '';
+		isEditingProfile = true;
+	};
+
+	const cancelEditingProfile = () => {
+		resetProfileFields();
+		message = '';
+		isEditingProfile = false;
+		isSaving = false;
+	};
 
 	const saveProfile = async () => {
 		if (!data.profile) return;
@@ -31,6 +55,7 @@
 		}
 		data = { ...data, profile: result.data };
 		message = '프로필이 업데이트되었습니다.';
+		isEditingProfile = false;
 	};
 
 	const learningLink = (course: UserCourseSummary) => {
@@ -39,6 +64,18 @@
 		}
 		return `/courses/${course.courseId}`;
 	};
+
+	$effect(() => {
+		const query = searchQuery.trim().toLowerCase();
+		const courses = data.courses;
+
+		if (!query) {
+			filteredCourses = courses;
+			return;
+		}
+
+		filteredCourses = courses.filter((course: UserCourseSummary) => course.title.toLowerCase().includes(query));
+	});
 </script>
 
 <svelte:head>
@@ -113,33 +150,75 @@
 				</div>
 			</div>
 			<div class="p-6 grid gap-6 md:grid-cols-2">
-				<label class="form-control">
-					<div class="label">
-						<span class="label-text font-semibold">닉네임</span>
+				{#if isEditingProfile}
+					<label class="form-control gap-2.5">
+						<span class="text-base font-semibold text-base-content/80">닉네임</span>
+						<input
+							type="text"
+							class="input input-bordered h-12 text-base placeholder:text-base placeholder:text-base-content/60"
+							bind:value={nickname}
+							placeholder="닉네임을 입력하세요"
+						/>
+					</label>
+				{:else}
+					<div class="surface-panel border-black/20 p-5 min-h-[112px] flex flex-col justify-between">
+						<span class="text-base font-semibold text-base-content/80">닉네임</span>
+						<p class="text-lg font-semibold text-base-content mt-2">{data.profile.nickname}</p>
 					</div>
-					<input type="text" class="input input-bordered" bind:value={nickname} placeholder="닉네임을 입력하세요" />
-				</label>
-				<label class="form-control">
-					<div class="label">
-						<span class="label-text font-semibold">주소</span>
+				{/if}
+
+				{#if isEditingProfile}
+					<label class="form-control gap-2.5">
+						<span class="text-base font-semibold text-base-content/80">주소</span>
+						<input
+							type="text"
+							class="input input-bordered h-12 text-base placeholder:text-base placeholder:text-base-content/60"
+							bind:value={address}
+							placeholder="주소를 입력하세요"
+						/>
+					</label>
+				{:else}
+					<div class="surface-panel border-black/20 p-5 min-h-[112px] flex flex-col justify-between">
+						<span class="text-base font-semibold text-base-content/80">주소</span>
+						<p class="text-base text-base-content mt-2">
+							{data.profile.address ?? '등록된 주소가 없습니다'}
+						</p>
 					</div>
-					<input type="text" class="input input-bordered" bind:value={address} placeholder="주소를 입력하세요" />
-				</label>
+				{/if}
+
 				<div class="md:col-span-2 flex flex-wrap items-center gap-4">
-					<button
-						type="button"
-						class="btn gap-2 border border-primary/60 bg-primary text-primary-content shadow-lg hover:border-primary hover:shadow-xl"
-						onclick={saveProfile}
-						disabled={isSaving}
-						class:loading={isSaving}
-					>
-						{#if !isSaving}
-							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-							</svg>
-						{/if}
-						프로필 저장
-					</button>
+					{#if isEditingProfile}
+						<button
+							type="button"
+							class="btn btn-lg gap-2 px-10 rounded-2xl border-none bg-gradient-to-r from-primary to-accent text-primary-content shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300"
+							onclick={saveProfile}
+							disabled={isSaving}
+							class:loading={isSaving}
+						>
+							{#if !isSaving}
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+								</svg>
+							{/if}
+							프로필 저장
+						</button>
+						<button
+							type="button"
+							class="btn btn-outline btn-lg rounded-2xl border-base-300 text-base-content"
+							onclick={cancelEditingProfile}
+							disabled={isSaving}
+						>
+							취소
+						</button>
+					{:else}
+						<button
+							type="button"
+							class="btn btn-lg px-12 rounded-2xl border-2 border-black/30 bg-base-100 text-base-content hover:border-primary hover:text-primary"
+							onclick={startEditingProfile}
+						>
+							프로필 수정
+						</button>
+					{/if}
 					{#if message}
 						<span class="text-sm text-success font-medium">{message}</span>
 					{/if}
@@ -149,7 +228,7 @@
 
 		<!-- My Courses Section -->
 		<div class="space-y-6">
-			<div class="flex items-center justify-between">
+			<div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
 				<div class="flex items-center gap-3">
 					<div class="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -158,12 +237,21 @@
 					</div>
 					<div>
 						<h2 class="text-2xl font-bold">나의 강의</h2>
-						<p class="text-sm text-base-content/60">수강 중인 강의를 계속 학습하세요</p>
+						<p class="text-sm text-base-content/60">
+							수강 중인 강의를 검색하거나 계속 학습하세요
+						</p>
 					</div>
 				</div>
-				{#if data.courses.length > 0}
-					<span class="badge badge-primary badge-lg font-semibold">{data.courses.length}개</span>
-				{/if}
+				<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-end md:gap-4">
+					<div class="w-full md:w-auto">
+						<CourseSearch bind:value={searchQuery} courses={data.courses} placeholder="강의명, 최근 학습 강의를 검색하세요" />
+					</div>
+					{#if filteredCourses.length > 0}
+						<span class="badge badge-primary badge-lg font-semibold self-start md:self-auto">
+							{filteredCourses.length}개
+						</span>
+					{/if}
+				</div>
 			</div>
 
 			{#if data.courses.length === 0}
@@ -186,11 +274,30 @@
 						</a>
 					</div>
 				</div>
+			{:else if filteredCourses.length === 0}
+				<div class="card-modern border border-dashed border-base-300 p-10 text-center space-y-4">
+					<div class="flex flex-col items-center gap-3">
+						<div class="w-14 h-14 rounded-full bg-primary/5 flex items-center justify-center text-primary">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+							</svg>
+						</div>
+						<div>
+							<p class="text-lg font-semibold">검색 결과가 없습니다</p>
+							<p class="text-sm text-base-content/60 mt-1">
+								‘{searchQuery}’와 일치하는 강의를 찾지 못했습니다. 다른 키워드를 입력해보세요.
+							</p>
+						</div>
+					</div>
+					<button type="button" class="btn btn-outline btn-sm gap-2" onclick={() => (searchQuery = '')}>
+						검색어 초기화
+					</button>
+				</div>
 			{:else}
 				<!-- Horizontal Scroll Carousel -->
 				<div class="relative">
 					<div class="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
-						{#each data.courses as course, index}
+						{#each filteredCourses as course, index}
 							<div
 								style="animation-delay: {index * 50}ms"
 								class="flex-shrink-0 w-80 snap-start animate-fade-in"
@@ -232,7 +339,7 @@
 										<div class="card-actions mt-4">
 											<a
 												href={learningLink(course)}
-												class="btn btn-primary btn-sm w-full gap-2 hover-scale"
+												class="btn btn-primary btn-sm w-full gap-2 hover-scale text-primary-content"
 											>
 												<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />

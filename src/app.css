@@ -75,12 +75,12 @@
 
 	/* Modern card with better shadows */
 	.card-modern {
-		@apply rounded-2xl border border-base-200 bg-base-100 shadow-sm transition-all duration-300;
+		@apply rounded-2xl border-2 border-base-300 bg-base-100 shadow-md transition-all duration-300;
 	}
 
 	.card-modern:hover {
 		@apply shadow-xl -translate-y-1;
-		border-color: color-mix(in srgb, hsl(var(--p)) 35%, transparent);
+		border-color: color-mix(in srgb, hsl(var(--p)) 45%, transparent);
 	}
 
 	/* Improved buttons */
@@ -91,6 +91,18 @@
 
 	.btn-gradient:hover {
 		@apply opacity-90 scale-105;
+	}
+
+	.btn-primary {
+		@apply text-primary-content;
+	}
+
+	.btn-ghost {
+		@apply border border-base-200 bg-base-100 text-base-content;
+	}
+
+	.surface-panel {
+		@apply rounded-2xl border-2 border-base-300 bg-base-100 shadow-sm;
 	}
 
 	/* Better input focus */
@@ -134,20 +146,10 @@
 		@apply scale-105;
 	}
 
-	/* Softer button active state to keep contrast */
-		.btn:not(.btn-disabled,:disabled):active {
-			--btn-bg: color-mix(in oklab, var(--btn-color, var(--color-base-200)), #fff 8%);
-			--btn-border: color-mix(in oklab, var(--btn-color, var(--color-base-200)), #fff 4%);
-			--btn-shadow: 0 1px 2px -1px color-mix(in oklab, var(--btn-color, var(--color-base-200)), #0000), 0 1px 3px -2px color-mix(in oklab, var(--btn-color, var(--color-base-200)), #0000);
-			translate: 0 0.5px;
-			--btn-fg: #fff;
-			color: #fff;
-		}
-
 		/* Better progress bars */
-	.progress::-webkit-progress-value {
-		@apply transition-all duration-500;
-	}
+		.progress::-webkit-progress-value {
+			@apply transition-all duration-500;
+		}
 
 	/* Improved tabs */
 	.tab {
@@ -197,5 +199,17 @@
 
 	.loading-pulse {
 		animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+	}
+}
+
+@layer utilities {
+	/* Softer button active state to keep contrast and readable text */
+	.btn:active:not(.btn-active):not(.btn-disabled):not(:disabled) {
+		--btn-bg: color-mix(in oklab, var(--btn-color, var(--color-base-200)), #fff 8%);
+		--btn-border: color-mix(in oklab, var(--btn-color, var(--color-base-200)), #fff 4%);
+		--btn-shadow: 0 1px 2px -1px color-mix(in oklab, var(--btn-color, var(--color-base-200)), #0000), 0 1px 3px -2px color-mix(in oklab, var(--btn-color, var(--color-base-200)), #0000);
+		--btn-fg: #fff;
+		color: #fff;
+		translate: 0 0.5px;
 	}
 }
