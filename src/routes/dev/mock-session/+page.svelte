@@ -6,57 +6,52 @@
 	let loading = $state(false);
 	let hasSession = $state(false);
 
-	const mockLinkGroups = [
-		{
-			title: '공개 페이지',
-			description: '로그인 없이 목업 데이터가 바로 보이는 경로',
-			items: [
-				{ href: '/', label: '홈(랜딩)', note: '히어로 + 대표 강의 카드' },
-				{ href: '/courses', label: '강의 목록', note: '검색/필터 포함' },
-				{ href: '/courses/course-ai-accelerator', label: '강의 상세', note: 'mockCourses[0]' }
-			]
-		},
-		{
-			title: '로그인 필요 페이지',
-			description: '아래 경로는 sb-access-token 쿠키가 있어야 전체 UI가 보입니다.',
-			items: [
-				{ href: '/mypage', label: '마이페이지', note: '프로필 + 진행 강의 (getMockMyPage)' },
-				{ href: '/learning', label: '학습 홈', note: '마이페이지 데이터 재사용' },
-				{ href: '/learning/mock-lecture-1', label: '학습 플레이어', note: '진행률/노트 목업' },
-				{ href: '/checkout?courseId=course-ai-accelerator', label: '결제 페이지', note: '수강권 확인' },
-				{ href: '/checkout/success?orderNumber=MOCK-ORDER', label: '결제 완료', note: '주문 요약' }
-			]
-		}
-	];
-
-	const hasMockSession = () => {
+	const checkSession = () => {
 		if (!browser) return false;
-		return document.cookie.split(';').some((cookie) => cookie.trim().startsWith('sb-access-token='));
-	};
-
-	const syncSessionState = () => {
-		hasSession = hasMockSession();
+		return document.cookie.includes('sb-access-token=');
 	};
 
 	onMount(() => {
-		syncSessionState();
+		hasSession = checkSession();
 	});
 
-	const callAction = async (action: 'set' | 'clear') => {
+	const setSession = async () => {
 		loading = true;
 		status = null;
 		try {
-			const response = await fetch('/dev/mock-session', {
+			const res = await fetch('/dev/mock-session', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action })
+				body: JSON.stringify({ action: 'set' })
 			});
-			const result = (await response.json()) as { message?: string };
-			status = result.message ?? (action === 'set' ? '세션이 설정되었습니다.' : '세션이 삭제되었습니다.');
-			syncSessionState();
-		} catch (error) {
-			status =
-				error instanceof Error ? error.message : '요청을 처리할 수 없습니다. 콘솔을 확인해주세요.';
+			const data = await res.json();
+			status = data.message || '세션이 설정되었습니다.';
+			setTimeout(() => {
+				hasSession = checkSession();
+			}, 100);
+		} catch (e) {
+			status = '오류: ' + (e instanceof Error ? e.message : '알 수 없는 오류');
+		} finally {
+			loading = false;
+		}
+	};
+
+	const clearSession = async () => {
+		loading = true;
+		status = null;
+		try {
+			const res = await fetch('/dev/mock-session', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'clear' })
+			});
+			const data = await res.json();
+			status = data.message || '세션이 삭제되었습니다.';
+			setTimeout(() => {
+				hasSession = checkSession();
+			}, 100);
+		} catch (e) {
+			status = '오류: ' + (e instanceof Error ? e.message : '알 수 없는 오류');
 		} finally {
 			loading = false;
 		}
@@ -79,27 +74,31 @@
 
 	<div class="grid gap-4 md:grid-cols-2">
 		<button
-			type="button"
 			class="btn btn-primary btn-lg"
-			onclick={() => callAction('set')}
 			disabled={loading}
-			class:loading={loading}
+			on:click={setSession}
 		>
-			모의 로그인 쿠키 설정
+			{#if loading}
+				<span class="loading loading-spinner"></span>
+			{:else}
+				모의 로그인 쿠키 설정
+			{/if}
 		</button>
 		<button
-			type="button"
 			class="btn btn-outline btn-error btn-lg"
-			onclick={() => callAction('clear')}
 			disabled={loading}
-			class:loading={loading}
+			on:click={clearSession}
 		>
-			쿠키 제거
+			{#if loading}
+				<span class="loading loading-spinner"></span>
+			{:else}
+				쿠키 제거
+			{/if}
 		</button>
 	</div>
 
 	{#if status}
-		<div role="status" class="alert alert-info text-sm">
+		<div class="alert alert-info">
 			{status}
 		</div>
 	{/if}
@@ -117,55 +116,23 @@
 
 	<section class="space-y-4 rounded-2xl border border-base-300 bg-base-100 p-6">
 		<h2 class="text-xl font-semibold">현재 목업 데이터가 붙어 있는 페이지</h2>
-		<p class="text-sm text-base-content/70">
-			모든 경로는 Supabase 백엔드 연동 전까지 목업 JSON으로 동작합니다. 로그인 필요 페이지는 모의 세션이 설정된
-			상태에서 확인하세요.
-		</p>
-		<div class="space-y-6">
-			{#each mockLinkGroups as group}
-				<div class="space-y-3">
-					<div class="flex items-center justify-between gap-3">
-						<div>
-							<h3 class="text-lg font-semibold">{group.title}</h3>
-							<p class="text-xs text-base-content/60">{group.description}</p>
-						</div>
-					</div>
-					<div class="grid gap-3 sm:grid-cols-2">
-						{#each group.items as item}
-							<a class="card border border-base-200 p-3 hover:border-primary/40 transition-colors" href={item.href}>
-								<div class="flex flex-col gap-1.5">
-									<div class="flex items-center justify-between gap-2">
-										<span class="text-sm font-semibold text-base-content">{item.label}</span>
-										{#if group.title === '로그인 필요 페이지'}
-											<span class="badge badge-ghost badge-xs text-[10px]">로그인 필요</span>
-										{/if}
-									</div>
-									<span class="text-xs text-base-content/60">{item.href}</span>
-									{#if item.note}
-										<span class="text-[11px] text-base-content/50">{item.note}</span>
-									{/if}
-								</div>
-							</a>
-						{/each}
-					</div>
+		<div class="space-y-4">
+			<div>
+				<h3 class="font-semibold mb-2">공개 페이지</h3>
+				<div class="space-y-2">
+					<a href="/" class="block text-primary hover:underline">홈</a>
+					<a href="/courses" class="block text-primary hover:underline">강의 목록</a>
+					<a href="/courses/course-ai-accelerator" class="block text-primary hover:underline">강의 상세</a>
 				</div>
-			{/each}
+			</div>
+			<div>
+				<h3 class="font-semibold mb-2">로그인 필요 페이지</h3>
+				<div class="space-y-2">
+					<a href="/mypage" class="block text-primary hover:underline">마이페이지</a>
+					<a href="/learning" class="block text-primary hover:underline">학습 홈</a>
+					<a href="/checkout?courseId=course-ai-accelerator" class="block text-primary hover:underline">결제 페이지</a>
+				</div>
+			</div>
 		</div>
-	</section>
-
-	<section class="space-y-3 rounded-2xl border border-dashed border-base-300 bg-base-100 p-6 text-sm text-base-content/70">
-		<h2 class="text-lg font-semibold text-base-content">추가 참고</h2>
-		<ul class="list-disc space-y-2 pl-5">
-			<li>
-				모의 세션은 HTTP-only가 아니므로 브라우저 개발자 도구에서 <code>sb-access-token</code>을 바로 확인하고
-				삭제할 수 있습니다.
-			</li>
-			<li>
-				실제 백엔드가 붙으면 이 페이지 대신 Supabase 로그인 흐름으로 쿠키가 발급될 예정입니다.
-			</li>
-			<li>
-				테마나 UI 점검 시 라이트/다크 전환을 함께 확인하면 대비가 올바르게 적용되었는지 빠르게 검증할 수 있습니다.
-			</li>
-		</ul>
 	</section>
 </section>

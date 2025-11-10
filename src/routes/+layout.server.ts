@@ -5,14 +5,3 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 		user: locals.user ?? null
 	};
 };
-
-
-<script>
-  import { getSupabaseClient } from '$lib/supabaseClient';
-
-  if (typeof window !== "undefined") {
-    window.supabase = getSupabaseClient();
-  }
-</script>
-
-<slot />

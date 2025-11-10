@@ -2,6 +2,7 @@
 
 	import '../app.css';
 	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { getSupabaseClient } from '$lib/supabaseClient';
 	import { onDestroy } from 'svelte';
 	import favicon from '$lib/assets/favicon.svg';
@@ -25,7 +26,7 @@
 	let unsubscribeClientUser: (() => void) | null = null;
 
 	if (browser) {
-		(window as any).supabase = getSupabaseClient(); 
+		(window as any).supabase = getSupabaseClient();
 		unsubscribeClientUser = currentUser.subscribe((value) => {
 			user = value ?? data.user ?? null;
 		});

@@ -84,7 +84,7 @@
 							/>
 							<button
 								type="submit"
-								class="btn btn-primary absolute right-2 top-1/2 -translate-y-1/2 rounded-xl border-2 border-primary/80 bg-primary px-6 text-base-content font-semibold shadow-lg hover:shadow-xl"
+								class="btn btn-primary absolute right-2 top-1/2 -translate-y-1/2 rounded-xl border-2 border-primary/80 bg-primary px-6 text-white font-semibold shadow-lg hover:shadow-xl"
 							>
 								검색
 							</button>

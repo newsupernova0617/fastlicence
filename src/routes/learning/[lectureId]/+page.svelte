@@ -30,6 +30,7 @@
 
 	let videoElement = $state<HTMLVideoElement | null>(null);
 	let lastProgressSent = 0;
+	let lectureListContainer = $state<HTMLDivElement | null>(null);
 
 	const openAuthModal = () => authModalState.open();
 
@@ -40,6 +41,22 @@
 	onMount(() => {
 		if (videoElement && data.lesson?.progress?.secondsWatched) {
 			videoElement.currentTime = data.lesson.progress.secondsWatched;
+		}
+	});
+
+	// lectureId가 변경될 때마다 사이드바에서 활성 강의 스크롤
+	$effect(() => {
+		// lectureId 변경 감지
+		const lectureId = data.lectureId;
+
+		if (lectureListContainer) {
+			// 다음 microtask에서 스크롤 (DOM 업데이트 완료 후)
+			Promise.resolve().then(() => {
+				const activeElement = lectureListContainer?.querySelector('[data-active="true"]');
+				if (activeElement) {
+					activeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+				}
+			});
 		}
 	});
 
@@ -141,9 +158,9 @@
 			</div>
 		</header>
 
-		<div class="grid gap-8 lg:grid-cols-[2fr,1fr]">
+		<div class="grid gap-8 lg:grid-cols-[2fr,1fr] grid-cols-1">
 			<!-- Video Player -->
-			<div class="space-y-6">
+			<div class="space-y-6 order-1 lg:order-1">
 				<div class="card-modern overflow-hidden shadow-2xl">
 					<video
 						bind:this={videoElement}
@@ -169,7 +186,7 @@
 			</div>
 
 			<!-- Sidebar: Other Lectures -->
-			<aside class="space-y-4">
+			<aside class="space-y-4 order-2 lg:order-2">
 				<div class="flex items-center gap-2">
 					<div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -178,21 +195,23 @@
 					</div>
 					<h3 class="text-lg font-bold">강의 목록</h3>
 				</div>
-				<div class="card-modern p-3 max-h-[600px] overflow-y-auto">
+				<div class="card-modern p-3 max-h-96 lg:max-h-[calc(100vh-300px)] overflow-y-auto" bind:this={lectureListContainer}>
 					<ul class="space-y-2">
 						{#each data.lesson.siblings as sibling, index}
-							<li>
+							{@const isActive = sibling.id === data.lesson.lecture.id}
+							<li data-active={isActive ? 'true' : 'false'}>
+
 								<a
 									href={`/learning/${sibling.id}`}
 									class={`block rounded-xl p-3 transition-all duration-300 ${
-										sibling.id === data.lesson.lecture.id
+										isActive
 											? 'bg-primary/10 border-2 border-primary shadow-md'
 											: 'border border-base-300 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5'
 									}`}
 								>
 									<div class="flex items-start gap-3">
 										<div class={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-											sibling.id === data.lesson.lecture.id
+											isActive
 												? 'bg-primary text-white'
 												: 'bg-base-200 text-base-content'
 										}`}>
@@ -200,7 +219,7 @@
 										</div>
 										<div class="flex-1 min-w-0">
 											<p class={`text-sm font-semibold line-clamp-2 ${
-												sibling.id === data.lesson.lecture.id ? 'text-primary' : ''
+												isActive ? 'text-primary' : ''
 											}`}>
 												{sibling.title}
 											</p>
@@ -213,7 +232,7 @@
 												</div>
 											{/if}
 										</div>
-										{#if sibling.id === data.lesson.lecture.id}
+										{#if isActive}
 											<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

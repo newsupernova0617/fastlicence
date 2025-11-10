@@ -170,9 +170,11 @@
 
 	<button
 		type="submit"
-		class="btn btn-lg w-full shadow-xl hover:shadow-2xl transition-all duration-300 font-bold text-lg"
-		class:btn-primary={!isSubmitting}
-		class:btn-disabled={disabled || isSubmitting}
+		class="btn btn-lg w-full border-2 border-primary shadow-xl hover:shadow-2xl transition-all duration-300 font-bold text-lg"
+		class:btn-primary={!isSubmitting && !disabled && !isSubmitting}
+		class:bg-primary={!isSubmitting && !disabled}
+		class:text-white={!isSubmitting && !disabled}
+		class:opacity-60={disabled || isSubmitting}
 		disabled={disabled || isSubmitting}
 	>
 		{#if isSubmitting}

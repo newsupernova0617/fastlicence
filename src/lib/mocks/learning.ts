@@ -2,15 +2,45 @@ import type { LearningLectureData, LectureProgress, NoteEntry, NotePayload } fro
 
 const lectureMap: Record<string, LearningLectureData> = {};
 
+const allSiblings = [
+	{ id: 'course-ai-accelerator-lecture-1', title: '오리엔테이션 및 합격 전략', durationMinutes: 18, previewAvailable: true },
+	{ id: 'course-ai-accelerator-lecture-2', title: '필수 개념 정리 1', durationMinutes: 32, previewAvailable: true },
+	{ id: 'course-ai-accelerator-lecture-3', title: '실전 CBT 모의고사 해설', durationMinutes: 45, previewAvailable: true }
+];
+
+const lectureMetadata: Record<string, { title: string; durationMinutes: number; description: string }> = {
+	'course-ai-accelerator-lecture-1': {
+		title: '오리엔테이션 및 합격 전략',
+		durationMinutes: 18,
+		description: '강의 흐름과 합격 전략을 소개합니다.'
+	},
+	'course-ai-accelerator-lecture-2': {
+		title: '필수 개념 정리 1',
+		durationMinutes: 32,
+		description: '필수 개념들을 체계적으로 정리합니다.'
+	},
+	'course-ai-accelerator-lecture-3': {
+		title: '실전 CBT 모의고사 해설',
+		durationMinutes: 45,
+		description: '실전 모의고사 문제들을 상세히 해설합니다.'
+	}
+};
+
 const createBaseLecture = (lectureId: string): LearningLectureData => {
 	const courseId = 'course-ai-accelerator';
+	const metadata = lectureMetadata[lectureId] || {
+		title: '강의',
+		durationMinutes: 30,
+		description: '강의 설명입니다.'
+	};
+
 	return {
 		lecture: {
 			id: lectureId,
-			title: '오리엔테이션 및 합격 전략',
-			durationMinutes: 18,
+			title: metadata.title,
+			durationMinutes: metadata.durationMinutes,
 			videoUrl: 'https://storage.googleapis.com/fastsaas/videos/sample.mp4',
-			description: '강의 흐름과 합격 전략을 소개합니다.',
+			description: metadata.description,
 			previewAvailable: true
 		},
 		course: {
@@ -31,11 +61,7 @@ const createBaseLecture = (lectureId: string): LearningLectureData => {
 			secondsWatched: 240,
 			percent: 35
 		} satisfies LectureProgress,
-		siblings: [
-			{ id: lectureId, title: '오리엔테이션 및 합격 전략', durationMinutes: 18, previewAvailable: true },
-			{ id: `${courseId}-lecture-2`, title: '필수 개념 정리 1', durationMinutes: 32 },
-			{ id: `${courseId}-lecture-3`, title: '실전 CBT 모의고사 해설', durationMinutes: 45 }
-		],
+		siblings: allSiblings,
 		hasAccess: true
 	};
 };
