@@ -73,6 +73,7 @@
 	</header>
 
 	<div class="grid gap-4 md:grid-cols-2">
+		<!-- svelte-ignore event_directive_deprecated -->
 		<button
 			class="btn btn-primary btn-lg"
 			disabled={loading}
@@ -84,6 +85,7 @@
 				모의 로그인 쿠키 설정
 			{/if}
 		</button>
+		<!-- svelte-ignore event_directive_deprecated -->
 		<button
 			class="btn btn-outline btn-error btn-lg"
 			disabled={loading}
