@@ -49,11 +49,17 @@
 		try {
 			const redirectUri = `${window.location.origin}/auth/callback`;
 			const endpoint = `${apiOrigin || ''}/auth/${provider}-login`;
+			const headers: Record<string, string> = {
+				'Content-Type': 'application/json'
+			};
+			const anonKey = env.PUBLIC_SUPABASE_ANON_KEY;
+			if (anonKey) {
+				headers.Authorization = `Bearer ${anonKey}`;
+				headers.apikey = anonKey;
+			}
 			const response = await fetch(endpoint, {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
+				headers,
 				body: JSON.stringify({
 					code,
 					redirectUri
