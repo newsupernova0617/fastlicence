@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { browser } from '$app/environment';
 	import { createEventDispatcher, onDestroy } from 'svelte';
+	import { page } from '$app/stores';
+	import { getSupabaseClient } from '$lib/supabaseClient';
 	import type { UserSummary } from '$lib/types';
 
-	const dispatch = createEventDispatcher<{ openAuth: void }>();
+const dispatch = createEventDispatcher<{ openAuth: void }>();
 
 	type NavLink = {
 		href: string;
@@ -20,6 +22,7 @@ let { user } = $props<{ user: UserSummary | null }>();
 
 let pathname = $state('/');
 let profileMenuOpen = $state(false);
+let logoutLoading = $state(false);
 
 	const unsubscribePage = page.subscribe(($page) => {
 		pathname = $page.url.pathname;
@@ -34,6 +37,27 @@ let profileMenuOpen = $state(false);
 	};
 
 	const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+	const handleLogout = async () => {
+		if (!browser || logoutLoading) return;
+		logoutLoading = true;
+		try {
+			const supabase = getSupabaseClient();
+			const { error } = await supabase.auth.signOut();
+			if (error) {
+				throw error;
+			}
+		} catch (error) {
+			console.error('Logout failed', error);
+		} finally {
+			logoutLoading = false;
+			await fetch('/api/logout', {
+				method: 'POST',
+				credentials: 'same-origin'
+			});
+			profileMenuOpen = false;
+		}
+	};
 </script>
 
 <header class="sticky top-0 z-50 backdrop-blur-md border-b border-base-200/30 shadow-md transition-all duration-300">
@@ -135,14 +159,18 @@ let profileMenuOpen = $state(false);
 						</li>
 						<div class="divider my-1"></div>
 						<li>
-							<form method="post" action="/api/logout" class="w-full">
-								<button type="submit" class="w-full rounded-lg hover:bg-error/10 hover:text-error transition-all duration-200">
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-									</svg>
-									로그아웃
-								</button>
-							</form>
+							<button
+								type="button"
+								class="w-full rounded-lg hover:bg-error/10 hover:text-error transition-all duration-200"
+								onclick={handleLogout}
+								class:loading={logoutLoading}
+								disabled={logoutLoading}
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+								</svg>
+								로그아웃
+							</button>
 						</li>
 					</ul>
 				</details>
