@@ -39,6 +39,10 @@ const buildUrl = (path: string): string => {
 	}
 
 	if (API_BASE_URL) {
+		const baseEndsWithApi = API_BASE_URL.endsWith('/api');
+		if (baseEndsWithApi && normalizedPath.startsWith('/api/')) {
+			return `${API_BASE_URL}${normalizedPath.slice(4)}`;
+		}
 		return `${API_BASE_URL}${normalizedPath}`;
 	}
 
@@ -54,13 +58,21 @@ export const apiFetch = async <T>(
 	if (import.meta.env.DEV) {
 		console.debug('[apiFetch] request', { method, url });
 	}
+	const anonKey = env.PUBLIC_SUPABASE_ANON_KEY;
+	const headerValues: Record<string, string> = {
+		'Content-Type': 'application/json',
+		...(headers ?? {})
+	};
+	const authValue = token ?? anonKey;
+	if (authValue) {
+		headerValues.Authorization = `Bearer ${authValue}`;
+	}
+	if (!token && anonKey) {
+		headerValues.apikey = anonKey;
+	}
 	const requestInit: RequestInit = {
 		method,
-		headers: {
-			'Content-Type': 'application/json',
-			...(headers ?? {}),
-			...(token ? { Authorization: `Bearer ${token}` } : {})
-		}
+		headers: headerValues
 	};
 
 	if (body !== undefined) {
