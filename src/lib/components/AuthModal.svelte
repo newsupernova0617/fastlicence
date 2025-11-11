@@ -2,7 +2,6 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { getSupabaseClient } from '$lib/supabaseClient';
-	import { env } from '$env/dynamic/public';
 
 	type OAuthProvider = 'google' | 'kakao';
 
@@ -58,28 +57,31 @@
 		}
 	};
 
-	const handleKakaoLogin = () => {
+
+	const handleKakaoLogin = async () => {
 		if (!browser) return;
 		errorMessage = '';
 		loadingProvider = 'kakao';
 
-		const kakaoClientId = env.PUBLIC_KAKAO_CLIENT_ID;
-		const kakaoRedirect = env.PUBLIC_KAKAO_REDIRECT_URI;
+		try {
+			const supabase = getSupabaseClient();
+			const redirectTo = `${window.location.origin}/auth/callback`;
 
-		if (!kakaoClientId || !kakaoRedirect) {
-			errorMessage = '카카오 로그인 환경 변수가 설정되지 않았습니다.';
+			const { error } = await supabase.auth.signInWithOAuth({
+				provider: 'kakao',
+				options: {
+					redirectTo
+				}
+			});
+
+			if (error) {
+				throw error;
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+			errorMessage = `카카오 로그인에 실패했습니다. ${message}`;
 			loadingProvider = null;
-			return;
 		}
-
-		const params = new URLSearchParams({
-			client_id: kakaoClientId,
-			redirect_uri: kakaoRedirect,
-			response_type: 'code',
-			scope: 'profile_nickname profile_image account_email'
-		});
-
-		window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
 	};
 
 	const goToCourses = () => {
