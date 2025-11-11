@@ -14,15 +14,7 @@ import type {
 	PaymentProvider,
 	UserProfile
 } from '$lib/types';
-import { getMockCourseDetail, getMockCourses } from '$lib/mocks/courses';
-import { confirmMockPayment, createMockOrder } from '$lib/mocks/orders';
-import { getMockMyPage, updateMockProfile } from '$lib/mocks/profile';
-import {
-	addMockNote,
-	addMockQuestion,
-	getMockLearningLecture,
-	updateMockProgress
-} from '$lib/mocks/learning';
+import { env } from '$env/dynamic/public';
 
 type ApiFetchOptions = {
 	token?: string;
@@ -31,11 +23,34 @@ type ApiFetchOptions = {
 	headers?: Record<string, string>;
 };
 
+const API_BASE_URL = env.PUBLIC_API_URL?.replace(/\/+$/, '') ?? '';
+const FUNCTIONS_BASE_URL = env.PUBLIC_FUNCTIONS_URL
+	? env.PUBLIC_FUNCTIONS_URL.replace(/\/+$/, '')
+	: API_BASE_URL.replace(/\/api\/?$/, '');
+
+const buildUrl = (path: string): string => {
+	if (/^https?:\/\//.test(path)) {
+		return path;
+	}
+
+	const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+	if (normalizedPath.startsWith('/functions/v1/')) {
+		return `${FUNCTIONS_BASE_URL}${normalizedPath}`;
+	}
+
+	if (API_BASE_URL) {
+		return `${API_BASE_URL}${normalizedPath}`;
+	}
+
+	return normalizedPath;
+};
+
 export const apiFetch = async <T>(
 	fetchFn: typeof fetch,
 	path: string,
 	{ token, method = 'GET', body, headers }: ApiFetchOptions = {}
 ): Promise<ApiResponse<T>> => {
+	const url = buildUrl(path);
 	const requestInit: RequestInit = {
 		method,
 		headers: {
@@ -50,7 +65,7 @@ export const apiFetch = async <T>(
 	}
 
 	try {
-		const response = await fetchFn(path, requestInit);
+		const response = await fetchFn(url, requestInit);
 		if (!response.ok) {
 			const errorBody = await response.json().catch(() => null);
 			return {
@@ -85,33 +100,121 @@ type FetchCoursesParams = {
 	token?: string;
 };
 
+type BackendCourse = {
+	courseId: number;
+	title: string;
+	instructorName: string;
+	priceOriginal: number;
+	priceSale: number | null;
+	tags?: string[] | null;
+	thumbnailUrl?: string | null;
+	difficultyLevel?: 'beginner' | 'mid' | 'advanced' | null;
+	summaryText?: string | null;
+};
+
+type BackendCourseListResponse = {
+	pagination: {
+		page: number;
+		size: number;
+		total: number;
+	};
+	courses: BackendCourse[];
+};
+
+type BackendCourseDetailResponse = {
+	course: BackendCourse & {
+		hasAccess: boolean;
+		progressPercent?: number | null;
+		difficultyLevel?: 'beginner' | 'mid' | 'advanced' | null;
+	};
+	lectures: {
+		lectureId: number;
+		title: string;
+		durationSeconds: number;
+		orderIndex: number;
+		previewAvailable: boolean;
+	}[];
+};
+
+type BackendMyPageResponse = {
+	profile: {
+		id: string;
+		nickname: string;
+		email: string;
+		avatar_url?: string | null;
+	};
+	enrollments: {
+		courseId: string;
+		title: string;
+		thumbnail?: string | null;
+		progress?: number | null;
+	}[];
+};
+
+type BackendUserProfile = {
+	id: string;
+	email: string;
+	nickname: string;
+	profile_image_url?: string | null;
+	address_text?: string | null;
+};
+
+const formatDifficulty = (value?: string | null): DifficultyLevel => {
+	if (value === 'advanced') return 'advanced';
+	if (value === 'mid') return 'intermediate';
+	return 'beginner';
+};
+
+const mapCourseSummary = (course: BackendCourse): CourseSummary => ({
+	id: String(course.courseId),
+	title: course.title,
+	description: course.summaryText ?? null,
+	publishedAt: null,
+	thumbnailUrl: course.thumbnailUrl ?? null,
+	instructor: course.instructorName,
+	difficulty: formatDifficulty(course.difficultyLevel),
+	reviewCount: null,
+	originalPrice: course.priceOriginal,
+	salePrice: course.priceSale ?? null,
+	tags: course.tags ?? undefined
+});
+
+const toCourseListResponse = (payload: BackendCourseListResponse): CourseListResponse => {
+	const totalPages = Math.ceil(payload.pagination.total / payload.pagination.size);
+	const nextPage =
+		payload.pagination.page < totalPages ? String(payload.pagination.page + 1) : null;
+
+	return {
+		items: payload.courses.map(mapCourseSummary),
+		nextCursor: nextPage
+	};
+};
+
 export const fetchCourses = async (
 	fetchFn: typeof fetch,
 	params: FetchCoursesParams = {}
 ): Promise<ApiResponse<CourseListResponse>> => {
 	const { search, difficulty, sort, cursor, limit, token } = params;
 	const query = new URLSearchParams();
+	const page = cursor ? Number(cursor) : 1;
 
 	if (search) query.set('search', search);
 	if (difficulty && difficulty !== 'all') query.set('difficulty', difficulty);
 	if (sort) query.set('sort', sort);
-	if (cursor) query.set('cursor', cursor);
-	if (limit) query.set('limit', String(limit));
+	if (limit) query.set('size', String(limit));
+	if (page && page > 1) query.set('page', String(page));
 
 	const path = query.toString() ? `/api/courses?${query.toString()}` : '/api/courses';
-	const result = await apiFetch<CourseListResponse>(fetchFn, path, { token });
+	const result = await apiFetch<BackendCourseListResponse>(fetchFn, path, { token });
 
 	if (!result.data) {
-		return {
-			data: { items: getMockCourses(limit), nextCursor: null },
-			error: result.error ?? {
-				code: 'MOCK_DATA',
-				message: '목업 데이터를 사용했습니다.'
-			}
-		};
+		return { data: null, error: result.error };
 	}
 
-	return result;
+	return {
+		data: toCourseListResponse(result.data),
+		error: result.error
+	};
 };
 
 export const fetchCourseDetail = async (
@@ -120,39 +223,57 @@ export const fetchCourseDetail = async (
 	{ token }: { token?: string } = {}
 ): Promise<ApiResponse<CourseDetail>> => {
 	const path = `/api/courses/${courseId}`;
-	const result = await apiFetch<CourseDetail>(fetchFn, path, { token });
+	const result = await apiFetch<BackendCourseDetailResponse>(fetchFn, path, { token });
 
 	if (!result.data) {
-		const fallback = getMockCourseDetail(courseId);
-		return {
-			data: fallback,
-			error: result.error ?? {
-				code: 'MOCK_DATA',
-				message: '목업 데이터를 사용했습니다.'
-			}
-		};
+		return { data: null, error: result.error };
 	}
 
-	return result;
+	const { course, lectures } = result.data;
+	const mappedCourse = mapCourseSummary(course);
+
+	const detail: CourseDetail = {
+		...mappedCourse,
+		hasAccess: course.hasAccess,
+		lectures: lectures.map((lecture) => ({
+			id: String(lecture.lectureId),
+			title: lecture.title,
+			durationMinutes: lecture.durationSeconds ? lecture.durationSeconds / 60 : null,
+			previewAvailable: lecture.previewAvailable
+		}))
+	};
+
+	return { data: detail, error: result.error };
 };
 
 export const fetchMyPage = async (
 	fetchFn: typeof fetch,
 	{ token }: { token?: string } = {}
 ): Promise<ApiResponse<MyPageData>> => {
-	const result = await apiFetch<MyPageData>(fetchFn, '/api/me', { token });
+	const result = await apiFetch<BackendMyPageResponse>(fetchFn, '/get-mypage', { token });
 
 	if (!result.data) {
-		return {
-			data: getMockMyPage(),
-			error: result.error ?? {
-				code: 'MOCK_DATA',
-				message: '마이페이지 데이터를 목업으로 불러왔습니다.'
-			}
-		};
+		return { data: null, error: result.error };
 	}
 
-	return result;
+	return {
+		data: {
+			profile: {
+				id: result.data.profile.id,
+				nickname: result.data.profile.nickname,
+				email: result.data.profile.email,
+				avatarUrl: result.data.profile.avatar_url ?? null,
+				address: null
+			},
+			courses: result.data.enrollments.map((enrollment) => ({
+				courseId: enrollment.courseId,
+				title: enrollment.title,
+				thumbnailUrl: enrollment.thumbnail ?? null,
+				progressPercent: enrollment.progress ?? 0
+			}))
+		},
+		error: result.error
+	};
 };
 
 type UpdateProfilePayload = Partial<Pick<UserProfile, 'nickname' | 'address' | 'avatarUrl'>>;
@@ -162,23 +283,27 @@ export const updateProfile = async (
 	payload: UpdateProfilePayload,
 	{ token }: { token?: string } = {}
 ): Promise<ApiResponse<UserProfile>> => {
-	const result = await apiFetch<UserProfile>(fetchFn, '/api/me/profile', {
+	const result = await apiFetch<{ user: BackendUserProfile }>(fetchFn, '/api/me/profile', {
 		method: 'PATCH',
 		body: payload,
 		token
 	});
 
-	if (!result.data) {
-		return {
-			data: updateMockProfile(payload),
-			error: result.error ?? {
-				code: 'MOCK_DATA',
-				message: '프로필을 임시로 업데이트했습니다.'
-			}
-		};
+	if (!result.data?.user) {
+		return { data: null, error: result.error };
 	}
 
-	return result;
+	const user = result.data.user;
+	return {
+		data: {
+			id: user.id,
+			email: user.email,
+			nickname: user.nickname,
+			avatarUrl: user.profile_image_url ?? null,
+			address: user.address_text ?? null
+		},
+		error: result.error
+	};
 };
 
 export const fetchLearningLecture = async (
@@ -186,20 +311,11 @@ export const fetchLearningLecture = async (
 	lectureId: string,
 	{ token }: { token?: string } = {}
 ): Promise<ApiResponse<LearningLectureData>> => {
-	const result = await apiFetch<LearningLectureData>(
-		fetchFn,
-		`/api/learning/lecture/${lectureId}`,
-		{ token }
-	);
+	const path = `/api/learning/lecture/${lectureId}`;
+	const result = await apiFetch<LearningLectureData>(fetchFn, path, { token });
 
 	if (!result.data) {
-		return {
-			data: getMockLearningLecture(lectureId),
-			error: result.error ?? {
-				code: 'MOCK_DATA',
-				message: '학습 데이터를 목업으로 불러왔습니다.'
-			}
-		};
+		return { data: null, error: result.error };
 	}
 
 	return result;
@@ -210,23 +326,11 @@ export const saveLearningProgress = async (
 	progress: LectureProgress,
 	{ token }: { token?: string } = {}
 ): Promise<ApiResponse<LectureProgress>> => {
-	const result = await apiFetch<LectureProgress>(fetchFn, '/api/learning/progress', {
+	return apiFetch<LectureProgress>(fetchFn, '/api/learning/progress', {
 		method: 'POST',
 		body: progress,
 		token
 	});
-
-	if (!result.data) {
-		return {
-			data: updateMockProgress(progress.lectureId, progress),
-			error: result.error ?? {
-				code: 'MOCK_DATA',
-				message: '진행률 저장을 목업으로 처리했습니다.'
-			}
-		};
-	}
-
-	return result;
 };
 
 export const saveLearningNote = async (
@@ -234,23 +338,11 @@ export const saveLearningNote = async (
 	payload: NotePayload,
 	{ token }: { token?: string } = {}
 ): Promise<ApiResponse<NoteEntry>> => {
-	const result = await apiFetch<NoteEntry>(fetchFn, '/api/learning/notes', {
+	return apiFetch<NoteEntry>(fetchFn, '/api/learning/notes', {
 		method: 'POST',
 		body: payload,
 		token
 	});
-
-	if (!result.data) {
-		return {
-			data: addMockNote(payload),
-			error: result.error ?? {
-				code: 'MOCK_DATA',
-				message: '메모 저장을 목업으로 처리했습니다.'
-			}
-		};
-	}
-
-	return result;
 };
 
 export const submitLearningQuestion = async (
@@ -259,23 +351,11 @@ export const submitLearningQuestion = async (
 	question: string,
 	{ token }: { token?: string } = {}
 ): Promise<ApiResponse<NoteEntry>> => {
-	const result = await apiFetch<NoteEntry>(
+	return apiFetch<NoteEntry>(
 		fetchFn,
 		'/functions/v1/learning/answerQuestion',
 		{ method: 'POST', body: { lectureId, question }, token }
 	);
-
-	if (!result.data) {
-		return {
-			data: addMockQuestion(lectureId, question),
-			error: result.error ?? {
-				code: 'MOCK_DATA',
-				message: '질문 전송을 목업으로 처리했습니다.'
-			}
-		};
-	}
-
-	return result;
 };
 
 type CreateOrderPayload = {
@@ -288,23 +368,11 @@ export const createOrder = async (
 	payload: CreateOrderPayload,
 	{ token }: { token?: string } = {}
 ): Promise<ApiResponse<CreateOrderResponse>> => {
-	const result = await apiFetch<CreateOrderResponse>(
+	return apiFetch<CreateOrderResponse>(
 		fetchFn,
 		'/functions/v1/payments/createOrder',
 		{ method: 'POST', body: payload, token }
 	);
-
-	if (!result.data) {
-		return {
-			data: createMockOrder(payload.courseId, payload.provider),
-			error: result.error ?? {
-				code: 'MOCK_DATA',
-				message: '결제 생성을 목업 데이터로 처리했습니다.'
-			}
-		};
-	}
-
-	return result;
 };
 
 type ConfirmPaymentPayload = {
@@ -316,21 +384,9 @@ export const confirmPayment = async (
 	payload: ConfirmPaymentPayload,
 	{ token }: { token?: string } = {}
 ): Promise<ApiResponse<PaymentConfirmation>> => {
-	const result = await apiFetch<PaymentConfirmation>(
+	return apiFetch<PaymentConfirmation>(
 		fetchFn,
 		'/functions/v1/payments/confirmPayment',
 		{ method: 'POST', body: payload, token }
 	);
-
-	if (!result.data) {
-		return {
-			data: confirmMockPayment(payload.orderNumber),
-			error: result.error ?? {
-				code: 'MOCK_DATA',
-				message: '결제 확인을 목업 데이터로 처리했습니다.'
-			}
-		};
-	}
-
-	return result;
 };
