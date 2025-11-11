@@ -51,6 +51,9 @@ export const apiFetch = async <T>(
 	{ token, method = 'GET', body, headers }: ApiFetchOptions = {}
 ): Promise<ApiResponse<T>> => {
 	const url = buildUrl(path);
+	if (import.meta.env.DEV) {
+		console.debug('[apiFetch] request', { method, url });
+	}
 	const requestInit: RequestInit = {
 		method,
 		headers: {
@@ -66,6 +69,9 @@ export const apiFetch = async <T>(
 
 	try {
 		const response = await fetchFn(url, requestInit);
+		if (import.meta.env.DEV) {
+			console.debug('[apiFetch] response', { method, url, status: response.status });
+		}
 		if (!response.ok) {
 			const errorBody = await response.json().catch(() => null);
 			return {
