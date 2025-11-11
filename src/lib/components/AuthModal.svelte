@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { env } from '$env/dynamic/public';
 	import { goto } from '$app/navigation';
+	import { getSupabaseClient } from '$lib/supabaseClient';
+	import { authModalState } from '$lib/stores/ui';
 
 	type OAuthProvider = 'google' | 'kakao';
 
@@ -27,74 +28,35 @@
 		onClose();
 	};
 
-	const redirectUri = 'auth/callback';
+	const startOAuthLogin = async (provider: OAuthProvider) => {
+		if (!browser) return;
+		errorMessage = '';
+		loadingProvider = provider;
 
-	const handleOAuthRedirect = (url: string) => {
-		if (browser) {
-			window.location.href = url;
-		}
-	};
-
-	const buildGoogleUrl = () => {
-		const clientId = env.PUBLIC_GOOGLE_CLIENT_ID;
-		if (!clientId) {
-			errorMessage = 'Google 클라이언트 ID가 설정되지 않았습니다.';
+		try {
+			const supabase = getSupabaseClient();
+			const redirectTo = window.location.href;
+			const { error } = await supabase.auth.signInWithOAuth({
+				provider,
+				options: {
+					redirectTo
+				}
+			});
+			if (error) throw error;
+			authModalState.close();
+		} catch (error) {
+			console.error('OAuth login failed', error);
+			errorMessage = error instanceof Error ? error.message : '로그인 요청을 처리하지 못했습니다.';
 			loadingProvider = null;
-			return null;
 		}
-
-		const params = new URLSearchParams({
-			client_id: clientId,
-			redirect_uri: `${window.location.origin}/${redirectUri}`,
-			response_type: 'code',
-			scope: 'openid email profile',
-			access_type: 'offline',
-			prompt: 'consent',
-			state: 'google'
-		});
-
-		return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-	};
-
-	const buildKakaoUrl = () => {
-		const clientId = env.PUBLIC_KAKAO_CLIENT_ID;
-		if (!clientId) {
-			errorMessage = '카카오 클라이언트 ID가 설정되지 않았습니다.';
-			loadingProvider = null;
-			return null;
-		}
-
-		const params = new URLSearchParams({
-			client_id: clientId,
-			redirect_uri: `${window.location.origin}/${redirectUri}`,
-			response_type: 'code',
-			state: 'kakao',
-			scope: 'profile_nickname,profile_image,account_email'
-		});
-
-		return `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
 	};
 
 	const handleGoogleLogin = () => {
-		if (!browser) return;
-		errorMessage = '';
-		loadingProvider = 'google';
-
-		const url = buildGoogleUrl();
-		if (!url) return;
-
-		handleOAuthRedirect(url);
+		void startOAuthLogin('google');
 	};
 
 	const handleKakaoLogin = () => {
-		if (!browser) return;
-		errorMessage = '';
-		loadingProvider = 'kakao';
-
-		const url = buildKakaoUrl();
-		if (!url) return;
-
-		handleOAuthRedirect(url);
+		void startOAuthLogin('kakao');
 	};
 
 	const goToCourses = () => {

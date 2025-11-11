@@ -190,9 +190,9 @@ type ApiResponse<T> = {
 ```bash
 PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 PUBLIC_SUPABASE_ANON_KEY=replace-with-anon-key
-PUBLIC_KAKAO_CLIENT_ID=replace-with-client-id
-PUBLIC_KAKAO_REDIRECT_URI=http://localhost:5173/auth/callback
 ```
+
+Social login is configured directly inside Supabase Authentication → Settings → External OAuth providers, so no frontend-specific client IDs or redirect URIs are required anymore.
 
 **Theme System**:
 - Single DaisyUI theme: `fastsaas`
@@ -233,7 +233,7 @@ PUBLIC_KAKAO_REDIRECT_URI=http://localhost:5173/auth/callback
 
 **Protecting Routes**:
 1. Check `locals.user` in +page.server.ts `load` function
-2. Redirect to auth callback if not authenticated: `throw redirect(307, '/auth/callback?next=/protected-route')`
+2. When unauthenticated, redirect to a public page (e.g., `/`) where the auth modal or Supabase UI can trigger `signInWithOAuth`
 3. Also check on client side in component for UX
 
 **Adding Authentication to API Endpoints**:
