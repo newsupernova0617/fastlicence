@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { env } from '$env/dynamic/public';
 	import { goto } from '$app/navigation';
-	import { getSupabaseClient } from '$lib/supabaseClient';
 
 	type OAuthProvider = 'google' | 'kakao';
 
@@ -27,61 +27,74 @@
 		onClose();
 	};
 
-	const handleGoogleLogin = async () => {
+	const redirectUri = 'auth/callback';
+
+	const handleOAuthRedirect = (url: string) => {
+		if (browser) {
+			window.location.href = url;
+		}
+	};
+
+	const buildGoogleUrl = () => {
+		const clientId = env.PUBLIC_GOOGLE_CLIENT_ID;
+		if (!clientId) {
+			errorMessage = 'Google 클라이언트 ID가 설정되지 않았습니다.';
+			loadingProvider = null;
+			return null;
+		}
+
+		const params = new URLSearchParams({
+			client_id: clientId,
+			redirect_uri: `${window.location.origin}/${redirectUri}`,
+			response_type: 'code',
+			scope: 'openid email profile',
+			access_type: 'offline',
+			prompt: 'consent',
+			state: 'google'
+		});
+
+		return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+	};
+
+	const buildKakaoUrl = () => {
+		const clientId = env.PUBLIC_KAKAO_CLIENT_ID;
+		if (!clientId) {
+			errorMessage = '카카오 클라이언트 ID가 설정되지 않았습니다.';
+			loadingProvider = null;
+			return null;
+		}
+
+		const params = new URLSearchParams({
+			client_id: clientId,
+			redirect_uri: `${window.location.origin}/${redirectUri}`,
+			response_type: 'code',
+			state: 'kakao',
+			scope: 'profile_nickname,profile_image,account_email'
+		});
+
+		return `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
+	};
+
+	const handleGoogleLogin = () => {
 		if (!browser) return;
 		errorMessage = '';
 		loadingProvider = 'google';
 
-		try {
-			const supabase = getSupabaseClient();
-			const redirectTo = `${window.location.origin}/auth/callback`;
+		const url = buildGoogleUrl();
+		if (!url) return;
 
-			const { error } = await supabase.auth.signInWithOAuth({
-				provider: 'google',
-				options: {
-					redirectTo,
-					queryParams: {
-						access_type: 'offline',
-						prompt: 'consent'
-					}
-				}
-			});
-
-			if (error) {
-				throw error;
-			}
-		} catch (error) {
-			const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-			errorMessage = `Google 로그인에 실패했습니다. ${message}`;
-			loadingProvider = null;
-		}
+		handleOAuthRedirect(url);
 	};
 
-
-	const handleKakaoLogin = async () => {
+	const handleKakaoLogin = () => {
 		if (!browser) return;
 		errorMessage = '';
 		loadingProvider = 'kakao';
 
-		try {
-			const supabase = getSupabaseClient();
-			const redirectTo = `${window.location.origin}/auth/callback`;
+		const url = buildKakaoUrl();
+		if (!url) return;
 
-			const { error } = await supabase.auth.signInWithOAuth({
-				provider: 'kakao',
-				options: {
-					redirectTo
-				}
-			});
-
-			if (error) {
-				throw error;
-			}
-		} catch (error) {
-			const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-			errorMessage = `카카오 로그인에 실패했습니다. ${message}`;
-			loadingProvider = null;
-		}
+		handleOAuthRedirect(url);
 	};
 
 	const goToCourses = () => {

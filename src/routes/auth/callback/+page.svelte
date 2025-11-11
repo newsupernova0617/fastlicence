@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { env } from '$env/dynamic/public';
 	import { goto } from '$app/navigation';
 	import { authModalState } from '$lib/stores/ui';
 	import { getSupabaseClient } from '$lib/supabaseClient';
@@ -7,29 +8,81 @@
 	let status: 'loading' | 'success' | 'error' = 'loading';
 	let errorMessage = '';
 
+	type Provider = 'google' | 'kakao';
+
+	const apiOrigin = env.PUBLIC_AUTH_API_URL
+		? env.PUBLIC_AUTH_API_URL.replace(/\/+$/, '')
+		: '';
+
 	const finalize = async () => {
 		if (!browser) return;
 
-		const supabase = getSupabaseClient();
+		const searchParams = new URL(window.location.href).searchParams;
+		const code = searchParams.get('code');
+		const state = (searchParams.get('state') ?? undefined) as Provider | undefined;
+		const oauthError = searchParams.get('error_description') ?? searchParams.get('error');
+
+		if (oauthError) {
+			status = 'error';
+			errorMessage = oauthError;
+			return;
+		}
+
+		if (!code) {
+			status = 'error';
+			errorMessage = 'OAuth 코드가 없습니다.';
+			return;
+		}
+
+		if (!state) {
+			status = 'error';
+			errorMessage = '로그인 공급자를 확인할 수 없습니다.';
+			return;
+		}
+		const provider = state === 'google' ? 'google' : state === 'kakao' ? 'kakao' : null;
+		if (!provider) {
+			status = 'error';
+			errorMessage = '알 수 없는 로그인 공급자입니다.';
+			return;
+		}
 
 		try {
-			const { data, error } = await supabase.auth.getSession();
-			if (error) {
-				throw error;
+			const redirectUri = `${window.location.origin}/auth/callback`;
+			const endpoint = `${apiOrigin || ''}/auth/${provider}-login`;
+			const response = await fetch(endpoint, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					code,
+					redirectUri
+				})
+			});
+
+			const payload = await response.json().catch(() => null);
+			if (!response.ok) {
+				throw new Error(payload?.error ?? response.statusText ?? '토큰 발급에 실패했습니다.');
 			}
 
-			if (data?.session) {
-				const url = new URL(window.location.href);
-				url.hash = '';
-				history.replaceState({}, document.title, url.toString());
-				status = 'success';
-				authModalState.close();
-				await goto('/');
-				return;
+			if (!payload?.access_token || !payload?.refresh_token) {
+				throw new Error('서버에서 액세스/리프레시 토큰을 반환하지 않았습니다.');
 			}
 
-			status = 'error';
-			errorMessage = '세션 정보를 찾을 수 없습니다.';
+			const supabase = getSupabaseClient();
+			const { error } = await supabase.auth.setSession({
+				access_token: payload.access_token,
+				refresh_token: payload.refresh_token
+			});
+			if (error) throw error;
+
+			const url = new URL(window.location.href);
+			url.hash = '';
+			url.search = '';
+			history.replaceState({}, document.title, url.toString());
+			status = 'success';
+			authModalState.close();
+			await goto('/');
 		} catch (error) {
 			status = 'error';
 			errorMessage = error instanceof Error ? error.message : 'OAuth 처리가 실패했습니다.';
